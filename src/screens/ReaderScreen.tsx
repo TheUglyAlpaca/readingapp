@@ -19,10 +19,12 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SettingsModal } from '../components/SettingsModal';
 import { mockBooks } from '../data/mockBooks';
 import { useReading } from '../context/ReadingContext';
+import * as haptics from '../utils/haptics';
 
 type RootStackParamList = {
     Bookshelf: undefined;
     Reader: { bookId: string };
+    Settings: undefined;
 };
 
 type ReaderScreenProps = {
@@ -31,13 +33,13 @@ type ReaderScreenProps = {
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 80; // Minimum distance to trigger dismiss
-const SWIPE_ZONE_HEIGHT = 100; // Top area where swipe is active
+const SWIPE_THRESHOLD = 80;
+const SWIPE_ZONE_HEIGHT = 100;
+const BUTTON_SIZE = 52; // Increased from 44
 
 export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route }) => {
     const { bookId } = route.params;
     const { fontSize, theme, readingProgress, updateProgress } = useReading();
-    const isDark = theme === 'dark';
     const insets = useSafeAreaInsets();
     const [showControls, setShowControls] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -50,7 +52,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
 
     // Calculate available height for text
     const pageHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 40;
-    const pageWidth = SCREEN_WIDTH - 48; // 24px padding on each side
+    const pageWidth = SCREEN_WIDTH - 48;
 
     // Estimate characters per page based on font size
     const charsPerLine = Math.floor(pageWidth / (fontSize * 0.5));
@@ -64,12 +66,10 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
         const content = book.content;
         const pageArray: string[] = [];
 
-        // Simple pagination by character count with word boundary awareness
         let startIndex = 0;
         while (startIndex < content.length) {
             let endIndex = startIndex + charsPerPage;
 
-            // Don't split in the middle of a word
             if (endIndex < content.length) {
                 const spaceIndex = content.lastIndexOf(' ', endIndex);
                 const newlineIndex = content.lastIndexOf('\n', endIndex);
@@ -116,14 +116,17 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
     }, [currentPage, pages.length, bookId, updateProgress]);
 
     const toggleControls = () => {
+        haptics.lightTap();
         setShowControls(prev => !prev);
     };
 
     const handleBack = () => {
+        haptics.mediumTap();
         navigation.goBack();
     };
 
     const handleOpenSettings = () => {
+        haptics.lightTap();
         setShowSettings(true);
         setShowControls(false);
     };
@@ -131,27 +134,27 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
     // Pan gesture for swipe-to-dismiss from top
     const panGesture = Gesture.Pan()
         .onEnd((event) => {
-            // Check if swipe started from top zone and is predominantly downward
             const isDownwardSwipe = event.translationY > SWIPE_THRESHOLD;
             const isPredominantlyVertical = Math.abs(event.translationY) > Math.abs(event.translationX) * 1.5;
 
             if (isDownwardSwipe && isPredominantlyVertical) {
+                haptics.mediumTap();
                 navigation.goBack();
             }
         });
 
     if (!book) {
         return (
-            <View style={[styles.container, isDark && styles.containerDark]}>
-                <Text style={[styles.errorText, isDark && styles.textDark]}>Book not found</Text>
+            <View style={[styles.container, { backgroundColor: theme.background }]}>
+                <Text style={[styles.errorText, { color: theme.text }]}>Book not found</Text>
             </View>
         );
     }
 
     return (
-        <View style={[styles.container, isDark && styles.containerDark]}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
             <StatusBar
-                barStyle={isDark ? 'light-content' : 'dark-content'}
+                barStyle={theme.isDark ? 'light-content' : 'dark-content'}
                 hidden={!showControls}
             />
 
@@ -167,7 +170,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                 </GestureDetector>
             )}
 
-            {/* Page content - ScrollView handles swipes */}
+            {/* Page content */}
             <ScrollView
                 ref={scrollViewRef}
                 horizontal
@@ -192,8 +195,11 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                     >
                         <Text style={[
                             styles.content,
-                            isDark && styles.textDark,
-                            { fontSize, lineHeight: fontSize * 1.6 }
+                            {
+                                color: theme.text,
+                                fontSize,
+                                lineHeight: fontSize * 1.6
+                            }
                         ]}>
                             {pageContent}
                         </Text>
@@ -203,7 +209,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
 
             {/* Page indicator */}
             <View style={[styles.pageIndicator, { bottom: insets.bottom + 10 }]} pointerEvents="none">
-                <Text style={[styles.pageIndicatorText, isDark && styles.pageIndicatorTextDark]}>
+                <Text style={[styles.pageIndicatorText, { color: theme.isDark ? '#666' : '#999' }]}>
                     {currentPage + 1} / {pages.length}
                 </Text>
             </View>
@@ -214,28 +220,30 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                     style={[styles.overlay, { opacity: fadeAnim }]}
                     pointerEvents="box-none"
                 >
-                    {/* Circular Back Button (X) - Top Left */}
+                    {/* Circular Back Button (X) - Top Left - LARGER */}
                     <TouchableOpacity
                         style={[
                             styles.circleButton,
-                            isDark && styles.circleButtonDark,
+                            theme.isDark && styles.circleButtonDark,
                             { top: insets.top + 12, left: 16 }
                         ]}
                         onPress={handleBack}
+                        activeOpacity={0.7}
                     >
-                        <Text style={[styles.circleButtonText, isDark && styles.circleButtonTextDark]}>✕</Text>
+                        <Text style={[styles.circleButtonText, theme.isDark && styles.circleButtonTextDark]}>✕</Text>
                     </TouchableOpacity>
 
-                    {/* Circular Settings Button (Hamburger) - Top Right */}
+                    {/* Circular Settings Button (Hamburger) - Top Right - LARGER */}
                     <TouchableOpacity
                         style={[
                             styles.circleButton,
-                            isDark && styles.circleButtonDark,
+                            theme.isDark && styles.circleButtonDark,
                             { top: insets.top + 12, right: 16 }
                         ]}
                         onPress={handleOpenSettings}
+                        activeOpacity={0.7}
                     >
-                        <Text style={[styles.circleButtonText, isDark && styles.circleButtonTextDark]}>☰</Text>
+                        <Text style={[styles.circleButtonText, theme.isDark && styles.circleButtonTextDark]}>☰</Text>
                     </TouchableOpacity>
 
                     {/* Tappable middle area to dismiss controls */}
@@ -249,6 +257,14 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                 onClose={() => setShowSettings(false)}
                 currentPage={currentPage + 1}
                 totalPages={pages.length}
+                pages={pages}
+                onNavigate={(pageIndex) => {
+                    setShowSettings(false);
+                    setCurrentPage(pageIndex);
+                    setTimeout(() => {
+                        scrollViewRef.current?.scrollTo({ x: pageIndex * SCREEN_WIDTH, animated: false });
+                    }, 100);
+                }}
             />
         </View>
     );
@@ -257,10 +273,6 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-    },
-    containerDark: {
-        backgroundColor: '#1a1a1a',
     },
     swipeZone: {
         position: 'absolute',
@@ -276,10 +288,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     content: {
-        color: '#333',
-    },
-    textDark: {
-        color: '#e0e0e0',
+        // Color set dynamically
     },
     pageIndicator: {
         position: 'absolute',
@@ -289,16 +298,11 @@ const styles = StyleSheet.create({
     },
     pageIndicatorText: {
         fontSize: 12,
-        color: '#999',
-    },
-    pageIndicatorTextDark: {
-        color: '#666',
     },
     errorText: {
         fontSize: 18,
         textAlign: 'center',
         marginTop: 40,
-        color: '#666',
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
@@ -306,9 +310,9 @@ const styles = StyleSheet.create({
     },
     circleButton: {
         position: 'absolute',
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: BUTTON_SIZE,
+        height: BUTTON_SIZE,
+        borderRadius: BUTTON_SIZE / 2,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         justifyContent: 'center',
         alignItems: 'center',
@@ -323,7 +327,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(40, 40, 40, 0.95)',
     },
     circleButtonText: {
-        fontSize: 20,
+        fontSize: 22, // Increased for larger button
         color: '#333',
         fontWeight: '300',
     },
@@ -332,6 +336,6 @@ const styles = StyleSheet.create({
     },
     middleArea: {
         flex: 1,
-        marginTop: 80,
+        marginTop: 100, // Increased for larger buttons
     },
 });

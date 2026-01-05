@@ -3,36 +3,41 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useReading } from '../context/ReadingContext';
 
 export const ReaderControls: React.FC = () => {
-    const { fontSize, theme, increaseFontSize, decreaseFontSize, toggleTheme } = useReading();
-    const isDark = theme === 'dark';
+    const { fontSize, theme, increaseFontSize, decreaseFontSize, setTheme, availableThemes, themeId } = useReading();
+
+    // Toggle between light and dark themes
+    const toggleTheme = () => {
+        const newThemeId = theme.isDark ? 'light' : 'dark';
+        setTheme(newThemeId);
+    };
 
     return (
-        <View style={[styles.container, isDark && styles.containerDark]}>
+        <View style={[styles.container, theme.isDark && styles.containerDark]}>
             <View style={styles.fontControls}>
                 <TouchableOpacity
-                    style={[styles.button, isDark && styles.buttonDark]}
+                    style={[styles.button, theme.isDark && styles.buttonDark]}
                     onPress={decreaseFontSize}
                 >
-                    <Text style={[styles.buttonText, isDark && styles.buttonTextDark]}>A-</Text>
+                    <Text style={[styles.buttonText, theme.isDark && styles.buttonTextDark]}>A-</Text>
                 </TouchableOpacity>
 
-                <Text style={[styles.fontSizeLabel, isDark && styles.textDark]}>
+                <Text style={[styles.fontSizeLabel, theme.isDark && styles.textDark]}>
                     {fontSize}
                 </Text>
 
                 <TouchableOpacity
-                    style={[styles.button, isDark && styles.buttonDark]}
+                    style={[styles.button, theme.isDark && styles.buttonDark]}
                     onPress={increaseFontSize}
                 >
-                    <Text style={[styles.buttonText, isDark && styles.buttonTextDark]}>A+</Text>
+                    <Text style={[styles.buttonText, theme.isDark && styles.buttonTextDark]}>A+</Text>
                 </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-                style={[styles.themeButton, isDark && styles.themeButtonDark]}
+                style={[styles.themeButton, theme.isDark && styles.themeButtonDark]}
                 onPress={toggleTheme}
             >
-                <Text style={styles.themeIcon}>{isDark ? '☀️' : '🌙'}</Text>
+                <Text style={styles.themeIcon}>{theme.isDark ? '☀️' : '🌙'}</Text>
             </TouchableOpacity>
         </View>
     );

@@ -1,22 +1,42 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ReadingState, ThemeMode } from '../types';
+import { ReadingState, ReadingTheme, BookshelfViewMode, Highlight } from '../types';
+import { READING_THEMES, getThemeById, DEFAULT_THEME_ID, DEFAULT_VIEW_MODE } from '../config/themes';
+import * as haptics from '../utils/haptics';
 
 const STORAGE_KEY = '@reading_app_state';
 
 const defaultState: ReadingState = {
     fontSize: 18,
-    theme: 'light',
+    themeId: DEFAULT_THEME_ID,
+    viewMode: DEFAULT_VIEW_MODE,
     lastOpenedBookId: null,
     readingProgress: {},
+    highlights: [],
 };
 
 interface ReadingContextType extends ReadingState {
+    // Theme
+    theme: ReadingTheme;
+    setTheme: (themeId: string) => void;
+    availableThemes: ReadingTheme[];
+
+    // Font Size
     increaseFontSize: () => void;
     decreaseFontSize: () => void;
-    toggleTheme: () => void;
+    setFontSize: (size: number) => void;
+
+    // View Mode
+    setViewMode: (mode: BookshelfViewMode) => void;
+
+    // Progress
     updateProgress: (bookId: string, position: number) => void;
     setLastOpenedBook: (bookId: string) => void;
+
+    // Highlights
+    addHighlight: (highlight: Omit<Highlight, 'id' | 'createdAt'>) => void;
+    removeHighlight: (highlightId: string) => void;
+    getBookHighlights: (bookId: string) => Highlight[];
 }
 
 const ReadingContext = createContext<ReadingContextType | undefined>(undefined);
@@ -32,6 +52,11 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 const saved = await AsyncStorage.getItem(STORAGE_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
+                    // Migrate old 'theme' to 'themeId' if needed
+                    if (parsed.theme && !parsed.themeId) {
+                        parsed.themeId = parsed.theme;
+                        delete parsed.theme;
+                    }
                     setState({ ...defaultState, ...parsed });
                 }
             } catch (error) {
@@ -56,7 +81,16 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, [state, isLoaded]);
 
+    const setTheme = (themeId: string) => {
+        haptics.selection();
+        setState((prev) => ({
+            ...prev,
+            themeId,
+        }));
+    };
+
     const increaseFontSize = () => {
+        haptics.lightTap();
         setState((prev) => ({
             ...prev,
             fontSize: Math.min(prev.fontSize + 2, 32),
@@ -64,16 +98,25 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     const decreaseFontSize = () => {
+        haptics.lightTap();
         setState((prev) => ({
             ...prev,
-            fontSize: Math.max(prev.fontSize - 2, 12),
+            fontSize: Math.max(prev.fontSize - 2, 10),
         }));
     };
 
-    const toggleTheme = () => {
+    const setFontSize = (size: number) => {
         setState((prev) => ({
             ...prev,
-            theme: prev.theme === 'light' ? 'dark' : 'light',
+            fontSize: size,
+        }));
+    };
+
+    const setViewMode = (mode: BookshelfViewMode) => {
+        haptics.selection();
+        setState((prev) => ({
+            ...prev,
+            viewMode: mode,
         }));
     };
 
@@ -94,19 +137,53 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
         }));
     };
 
+    const addHighlight = (highlight: Omit<Highlight, 'id' | 'createdAt'>) => {
+        haptics.success();
+        const newHighlight: Highlight = {
+            ...highlight,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            createdAt: Date.now(),
+        };
+        setState((prev) => ({
+            ...prev,
+            highlights: [...prev.highlights, newHighlight],
+        }));
+    };
+
+    const removeHighlight = (highlightId: string) => {
+        haptics.lightTap();
+        setState((prev) => ({
+            ...prev,
+            highlights: prev.highlights.filter(h => h.id !== highlightId),
+        }));
+    };
+
+    const getBookHighlights = (bookId: string): Highlight[] => {
+        return state.highlights.filter(h => h.bookId === bookId);
+    };
+
     if (!isLoaded) {
-        return null; // Or a loading spinner
+        return null;
     }
+
+    const currentTheme = getThemeById(state.themeId);
 
     return (
         <ReadingContext.Provider
             value={{
                 ...state,
+                theme: currentTheme,
+                availableThemes: READING_THEMES,
+                setTheme,
                 increaseFontSize,
                 decreaseFontSize,
-                toggleTheme,
+                setFontSize,
+                setViewMode,
                 updateProgress,
                 setLastOpenedBook,
+                addHighlight,
+                removeHighlight,
+                getBookHighlights,
             }}
         >
             {children}

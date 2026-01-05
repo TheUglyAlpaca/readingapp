@@ -6,17 +6,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReadingProvider, useReading } from './src/context/ReadingContext';
 import { BookshelfScreen } from './src/screens/BookshelfScreen';
 import { ReaderScreen } from './src/screens/ReaderScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 
 type RootStackParamList = {
   Bookshelf: undefined;
   Reader: { bookId: string };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   const { theme } = useReading();
-  const isDark = theme === 'dark';
 
   const lightTheme = {
     ...DefaultTheme,
@@ -39,24 +40,26 @@ const AppNavigator: React.FC = () => {
   };
 
   return (
-    <NavigationContainer theme={isDark ? darkTheme : lightTheme}>
+    <NavigationContainer theme={theme.isDark ? darkTheme : lightTheme}>
       <Stack.Navigator
         initialRouteName="Bookshelf"
         screenOptions={{
-          headerShown: true,
-          headerBackTitle: 'Back',
+          headerShown: false,
         }}
       >
         <Stack.Screen
           name="Bookshelf"
           component={BookshelfScreen}
-          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="Reader"
           component={ReaderScreen}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
           options={{
-            headerShown: false,
+            animation: 'slide_from_right',
           }}
         />
       </Stack.Navigator>
