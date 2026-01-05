@@ -47,6 +47,7 @@ export interface Highlight {
     color: string;
     text: string;
     createdAt: number;
+    cfiRange?: string;
 }
 
 // Extended Reading State
@@ -54,6 +55,8 @@ export interface ReadingState {
     fontSize: number;
     themeId: string;
     viewMode: BookshelfViewMode;
+    lineHeight?: number;
+    pageAnimation?: 'slide' | 'curl' | 'scroll' | 'none';
     lastOpenedBookId: string | null;
     readingProgress: Record<string, number>;
     highlights: Highlight[];

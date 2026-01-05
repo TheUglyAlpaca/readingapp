@@ -44,6 +44,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         // Using existing methods for now, but really need setFontSize for slider
         increaseFontSize,
         decreaseFontSize,
+        lineHeight,
+        setLineHeight,
+        pageAnimation,
+        setPageAnimation,
     } = useReading();
 
     // Quick fix: access context logic directly or update context. 
@@ -209,10 +213,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 onValueChange={(val) => {
                                                     setFontSize(val);
                                                 }}
-                                                onSlidingComplete={(val) => {
-                                                    // Use increase/decrease to approximate for now or assume setter in next step
-                                                    // I will update Context immediately after this file operation.
-                                                }}
                                                 minimumTrackTintColor={theme.accent}
                                                 maximumTrackTintColor={theme.isDark ? '#444' : '#ddd'}
                                                 thumbTintColor={theme.accent}
@@ -221,6 +221,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             <Text style={[styles.fontLabelLarge, { color: theme.text }]}>A</Text>
                                         </View>
                                         <Text style={[styles.fontSizeValue, { color: theme.text }]}>{fontSize}pt</Text>
+                                    </View>
+
+                                    {/* Line Spacing */}
+                                    <View style={styles.section}>
+                                        <Text style={[styles.sectionLabel, { color: theme.isDark ? '#888' : '#888' }]}>Line Spacing</Text>
+                                        <View style={styles.sliderRow}>
+                                            <Text style={[styles.sliderIcon, { color: theme.text }]}>☰</Text>
+                                            <Slider
+                                                style={styles.slider}
+                                                minimumValue={1.0}
+                                                maximumValue={3.0}
+                                                step={0.1}
+                                                value={lineHeight}
+                                                onValueChange={setLineHeight}
+                                                minimumTrackTintColor={theme.accent}
+                                                maximumTrackTintColor={theme.isDark ? '#444' : '#ddd'}
+                                                thumbTintColor={theme.accent}
+                                            />
+                                            <Text style={[styles.sliderValue, { color: theme.text }]}>{lineHeight ? lineHeight.toFixed(1) : '1.6'}</Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Page Animation */}
+                                    <View style={styles.section}>
+                                        <Text style={[styles.sectionLabel, { color: theme.isDark ? '#888' : '#888' }]}>Page Animation</Text>
+                                        <View style={styles.animationOptions}>
+                                            {(['slide', 'scroll', 'none'] as const).map((anim) => (
+                                                <TouchableOpacity
+                                                    key={anim}
+                                                    style={[
+                                                        styles.animButton,
+                                                        { borderColor: theme.isDark ? '#444' : '#ddd' },
+                                                        pageAnimation === anim && {
+                                                            borderColor: theme.accent,
+                                                            backgroundColor: theme.isDark ? '#2a2a2a' : '#f0f7ff'
+                                                        }
+                                                    ]}
+                                                    onPress={() => setPageAnimation(anim)}
+                                                >
+                                                    <Text style={[
+                                                        styles.animButtonText,
+                                                        { color: theme.isDark ? '#ccc' : '#333' },
+                                                        pageAnimation === anim && { color: theme.accent, fontWeight: 'bold' }
+                                                    ]}>
+                                                        {anim.charAt(0).toUpperCase() + anim.slice(1)}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
                                     </View>
 
                                     {/* Theme Grid */}
@@ -483,5 +532,38 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '600',
         color: '#fff',
+    },
+    sliderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 8,
+    },
+    sliderIcon: {
+        fontSize: 18,
+        width: 24,
+        textAlign: 'center',
+    },
+    sliderValue: {
+        fontSize: 14,
+        width: 30,
+        textAlign: 'right',
+        fontVariant: ['tabular-nums'],
+    },
+    animationOptions: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 10,
+    },
+    animButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    animButtonText: {
+        fontSize: 13,
+        fontWeight: '500',
     },
 });

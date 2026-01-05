@@ -6,18 +6,24 @@ import * as haptics from '../utils/haptics';
 interface BookCardProps {
     book: Book;
     onPress: () => void;
+    onLongPress?: () => void;
 }
 
 const { width } = Dimensions.get('window');
 // Screen padding (8*2) + Card margins (8*4 for 2 columns) = 16 + 32 = 48
 const CARD_WIDTH = (width - 48) / 2;
 
-export const BookCard: React.FC<BookCardProps> = ({ book, onPress }) => {
+export const BookCard: React.FC<BookCardProps> = ({ book, onPress, onLongPress }) => {
     const { theme } = useReading();
 
     const handlePress = () => {
         haptics.mediumTap();
         onPress();
+    };
+
+    const handleLongPress = () => {
+        haptics.mediumTap();
+        if (onLongPress) onLongPress();
     };
 
     return (
@@ -30,6 +36,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, onPress }) => {
                 }
             ]}
             onPress={handlePress}
+            onLongPress={handleLongPress}
             activeOpacity={0.7}
         >
             <View style={[styles.cover, { backgroundColor: book.coverColor }]}>

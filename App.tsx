@@ -7,11 +7,13 @@ import { ReadingProvider, useReading } from './src/context/ReadingContext';
 import { BookshelfScreen } from './src/screens/BookshelfScreen';
 import { ReaderScreen } from './src/screens/ReaderScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { HighlightsScreen } from './src/screens/HighlightsScreen';
 
 type RootStackParamList = {
   Bookshelf: undefined;
   Reader: { bookId: string };
   Settings: undefined;
+  Highlights: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -54,6 +56,13 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen
           name="Reader"
           component={ReaderScreen}
+        />
+        <Stack.Screen
+          name="Highlights"
+          component={HighlightsScreen}
+          options={{
+            animation: 'slide_from_bottom',
+          }}
         />
         <Stack.Screen
           name="Settings"

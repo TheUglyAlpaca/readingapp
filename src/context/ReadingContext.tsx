@@ -11,6 +11,8 @@ const defaultState: ReadingState = {
     fontSize: 18,
     themeId: DEFAULT_THEME_ID,
     viewMode: DEFAULT_VIEW_MODE,
+    lineHeight: 1.6,
+    pageAnimation: 'slide',
     lastOpenedBookId: null,
     readingProgress: {},
     highlights: [],
@@ -31,6 +33,12 @@ interface ReadingContextType extends ReadingState {
     // View Mode
     setViewMode: (mode: BookshelfViewMode) => void;
 
+    // Advanced Settings
+    lineHeight: number;
+    setLineHeight: (height: number) => void;
+    pageAnimation: 'slide' | 'curl' | 'scroll' | 'none';
+    setPageAnimation: (anim: 'slide' | 'curl' | 'scroll' | 'none') => void;
+
     // Progress
     updateProgress: (bookId: string, position: number) => void;
     setLastOpenedBook: (bookId: string) => void;
@@ -43,6 +51,7 @@ interface ReadingContextType extends ReadingState {
     // Books
     books: Book[];
     addBook: (book: Book) => void;
+    deleteBook: (bookId: string) => void;
 }
 
 const ReadingContext = createContext<ReadingContextType | undefined>(undefined);
@@ -147,6 +156,20 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
         }));
     };
 
+    const setLineHeight = (height: number) => {
+        setState((prev) => ({
+            ...prev,
+            lineHeight: height,
+        }));
+    };
+
+    const setPageAnimation = (anim: 'slide' | 'curl' | 'scroll' | 'none') => {
+        setState((prev) => ({
+            ...prev,
+            pageAnimation: anim,
+        }));
+    };
+
     const updateProgress = (bookId: string, position: number) => {
         setState((prev) => ({
             ...prev,
@@ -191,10 +214,34 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const addBook = (book: Book) => {
         haptics.success();
-        setState((prev) => ({
-            ...prev,
-            books: [...(prev.books || []), book],
-        }));
+        setState((prev) => {
+            const nextBooks = [...(prev.books || []), book];
+            AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prev, books: nextBooks }));
+            return {
+                ...prev,
+                books: nextBooks,
+            };
+        });
+    };
+
+    const deleteBook = (bookId: string) => {
+        haptics.selection();
+        setState((prev) => {
+            const nextBooks = (prev.books || []).filter(b => b.id !== bookId);
+            const nextHighlights = prev.highlights.filter(h => h.bookId !== bookId);
+            const nextProgress = { ...prev.readingProgress };
+            delete nextProgress[bookId];
+
+            const nextState = {
+                ...prev,
+                books: nextBooks,
+                highlights: nextHighlights,
+                readingProgress: nextProgress,
+            };
+
+            AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+            return nextState;
+        });
     };
 
     if (!isLoaded) {
@@ -208,12 +255,16 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
             value={{
                 ...state,
                 theme: currentTheme,
+                lineHeight: state.lineHeight ?? 1.6,
+                pageAnimation: state.pageAnimation ?? 'slide',
                 availableThemes: READING_THEMES,
                 setTheme,
                 increaseFontSize,
                 decreaseFontSize,
                 setFontSize,
                 setViewMode,
+                setLineHeight,
+                setPageAnimation,
                 updateProgress,
                 setLastOpenedBook,
                 addHighlight,
@@ -221,6 +272,7 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 getBookHighlights,
                 books: state.books || [],
                 addBook,
+                deleteBook,
             }}
         >
             {children}

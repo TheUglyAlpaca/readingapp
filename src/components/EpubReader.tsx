@@ -9,9 +9,10 @@ interface EpubReaderProps {
     theme: ReadingTheme;
     onPageChange?: (page: number, total: number) => void;
     onToggleControls?: () => void;
+    onHighlight?: (text: string, cfiRange?: string) => void;
 }
 
-export const EpubReader: React.FC<EpubReaderProps> = ({ book, theme, onPageChange, onToggleControls }) => {
+export const EpubReader: React.FC<EpubReaderProps> = ({ book, theme, onPageChange, onToggleControls, onHighlight }) => {
     const [base64Content, setBase64Content] = React.useState<string | null>(null);
 
     React.useEffect(() => {
@@ -108,6 +109,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book, theme, onPageChang
                 if (onPageChange) onPageChange(data.page || 0, data.total || 0);
             } else if (data.type === 'toggle') {
                 if (onToggleControls) onToggleControls();
+            } else if (data.type === 'highlight') {
+                if (onHighlight) onHighlight(data.text, data.cfiRange);
             }
         } catch (e) {
             // ignore

@@ -10,9 +10,10 @@ interface PdfReaderProps {
     onPageChange?: (page: number, total: number) => void;
     onToggleControls?: () => void;
     initialPage?: number;
+    onHighlight?: (text: string, page: number) => void;
 }
 
-export const PdfReader: React.FC<PdfReaderProps> = ({ book, theme, onPageChange, onToggleControls, initialPage = 1 }) => {
+export const PdfReader: React.FC<PdfReaderProps> = ({ book, theme, onPageChange, onToggleControls, initialPage = 1, onHighlight }) => {
     const [base64Content, setBase64Content] = React.useState<string | null>(null);
 
     // Use a ref to capture the initial page only once to prevent re-renders of the WebView
@@ -43,24 +44,57 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, theme, onPageChange,
             justify-content: center;
             align-items: center;
         }
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        #page-container {
+            position: relative;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         canvas {
-            max-width: 100%;
-            max-height: 100%;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: block;
+            pointer-events: none; /* Let clicks pass through to text layer if needed, or handle taps on container */
+        }
+        /* Vital for text selection alignment */
+        .textLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            opacity: 0.2; /* Make text invisible but selectable. Debug: 0.5 */
+            line-height: 1.0;
+        }
+        .textLayer > span {
+            color: transparent;
+            position: absolute;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0% 0%;
+        }
+        /* Highlight Selection Popover */
+        #highlight-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${theme.accent};
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-family: sans-serif;
+            font-weight: bold;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            border: none;
         }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
+    <div id="page-container">
         <canvas id="the-canvas"></canvas>
+        <div id="text-layer" class="textLayer"></div>
     </div>
+    <button id="highlight-btn" onclick="saveHighlight()">Save Highlight ❤️</button>
     
     <script>
         var pdfData = atob("${base64Content}");
@@ -84,27 +118,45 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, theme, onPageChange,
             pageRendering = true;
             pdfDoc.getPage(num).then(function(page) {
                 var viewport = page.getViewport({scale: scale});
+                var container = window.innerWidth;
+                var containerHeight = window.innerHeight;
                 
-                // Fit to screen logic
-                var container = document.getElementById('canvas-container');
-                var containerWidth = container.clientWidth;
-                var containerHeight = container.clientHeight;
-                
-                // Calculate scale to fit
-                var widthScale = containerWidth / (viewport.width / scale);
+                // Fit scale logic
+                var widthScale = container / (viewport.width / scale);
                 var heightScale = containerHeight / (viewport.height / scale);
-                var fitScale = Math.min(widthScale, heightScale) * 0.95; // 5% margin
-                
+                var fitScale = Math.min(widthScale, heightScale) * 0.95;
+
                 viewport = page.getViewport({scale: fitScale});
 
+                var canvas = document.getElementById('the-canvas');
+                var textLayerDiv = document.getElementById('text-layer');
+                
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
+                
+                // Match text layer size to canvas
+                textLayerDiv.style.height = viewport.height + 'px';
+                textLayerDiv.style.width = viewport.width + 'px';
+                // Clear previous text
+                textLayerDiv.innerHTML = '';
 
+                var ctx = canvas.getContext('2d');
                 var renderContext = {
                     canvasContext: ctx,
                     viewport: viewport
                 };
+                
                 var renderTask = page.render(renderContext);
+
+                // Render Text Layer
+                page.getTextContent().then(function(textContent) {
+                    pdfjsLib.renderTextLayer({
+                        textContent: textContent,
+                        container: textLayerDiv,
+                        viewport: viewport,
+                        textDivs: []
+                    });
+                });
 
                 renderTask.promise.then(function() {
                     pageRendering = false;
@@ -116,6 +168,32 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, theme, onPageChange,
                     }
                 });
             });
+        }
+
+        // Selection Handling
+        document.addEventListener('selectionchange', () => {
+             const selection = window.getSelection();
+             const btn = document.getElementById('highlight-btn');
+             if (selection && selection.toString().length > 0) {
+                 btn.style.display = 'block';
+             } else {
+                 btn.style.display = 'none';
+             }
+        });
+
+        function saveHighlight() {
+            const selection = window.getSelection();
+            const text = selection.toString();
+            if (text) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ 
+                    type: 'highlight', 
+                    text: text, 
+                    page: pageNum 
+                }));
+                // Clear selection
+                selection.removeAllRanges();
+                document.getElementById('highlight-btn').style.display = 'none';
+            }
         }
 
         function queueRenderPage(num) {
@@ -232,6 +310,8 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, theme, onPageChange,
                 if (onPageChange) onPageChange(data.page, data.total);
             } else if (data.type === 'toggle') {
                 if (onToggleControls) onToggleControls();
+            } else if (data.type === 'highlight') {
+                if (onHighlight) onHighlight(data.text, data.page);
             }
         } catch (e) {
             // ignore

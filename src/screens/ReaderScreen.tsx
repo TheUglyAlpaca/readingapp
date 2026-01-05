@@ -19,6 +19,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SettingsModal } from '../components/SettingsModal';
 import { PdfReader } from '../components/PdfReader';
 import { EpubReader } from '../components/EpubReader';
+import { HtmlReader } from '../components/HtmlReader';
 import { useReading } from '../context/ReadingContext';
 import * as haptics from '../utils/haptics';
 
@@ -40,7 +41,7 @@ const BUTTON_SIZE = 52;
 
 export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route }) => {
     const { bookId } = route.params;
-    const { fontSize, theme, readingProgress, updateProgress, books } = useReading();
+    const { fontSize, lineHeight, pageAnimation, theme, readingProgress, updateProgress, books, addHighlight } = useReading();
     const insets = useSafeAreaInsets();
     const [showControls, setShowControls] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -62,32 +63,23 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
     const charsPerPage = charsPerLine * linesPerPage;
 
     // Split content into pages (Text books only)
+    // Legacy note: Logic moved to HtmlReader for consistency
     useEffect(() => {
-        if (!book || book.type === 'pdf' || book.type === 'epub') return;
+        // No-op for now, or we can use this to pre-calculate total pages if we really wanted to, 
+        // but HtmlReader reports total pages via message.
+        if (book?.type !== 'text') return;
 
-        const content = book.content;
-        const pageArray: string[] = [];
+        // We rely on HtmlReader onPageChange to setTotalPages
+    }, [book]);
 
-        let startIndex = 0;
-        while (startIndex < content.length) {
-            let endIndex = startIndex + charsPerPage;
-
-            if (endIndex < content.length) {
-                const spaceIndex = content.lastIndexOf(' ', endIndex);
-                const newlineIndex = content.lastIndexOf('\n', endIndex);
-                const breakIndex = Math.max(spaceIndex, newlineIndex);
-                if (breakIndex > startIndex) {
-                    endIndex = breakIndex;
-                }
-            }
-
-            pageArray.push(content.slice(startIndex, endIndex).trim());
-            startIndex = endIndex + 1;
-        }
-
-        setPages(pageArray);
-        setTotalPages(pageArray.length);
-    }, [book, charsPerPage]);
+    /*
+        useEffect(() => {
+            if (!book || book.type === 'pdf' || book.type === 'epub') return;
+    
+            const content = book.content;
+            const pageArray: string[] = [];
+    ...
+    */
 
     // Restore page position
     useEffect(() => {
@@ -142,6 +134,34 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
         setShowControls(false);
     };
 
+    const handleHighlight = (text: string, location?: number | string) => {
+        if (!text.trim()) return;
+
+        let pageIndex = currentPage; // Default to current page
+        let cfiRange: string | undefined = undefined;
+
+        if (typeof location === 'number') {
+            // It's a page number (1-based), convert to 0-based
+            pageIndex = location - 1;
+        } else if (typeof location === 'string') {
+            // It's a CFI range for EPUB
+            cfiRange = location;
+            // Optionally try to update pageIndex if we can map it, but keeping current is safe fallback
+        }
+
+        addHighlight({
+            bookId,
+            pageIndex,
+            startOffset: 0,
+            endOffset: 0,
+            color: '#FFFF00', // Default yellow
+            text: text.trim(),
+            // @ts-ignore: Highlight interface needs updating to support cfiRange properly if not already
+            cfiRange
+        });
+        haptics.success();
+    };
+
     // Pan gesture for swipe-to-dismiss from top
     const panGesture = Gesture.Pan()
         .onEnd((event) => {
@@ -188,6 +208,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                     onPageChange={handlePageChange}
                     onToggleControls={toggleControls}
                     initialPage={(readingProgress[bookId] || 0) + 1}
+                    onHighlight={handleHighlight}
                 />
             ) : book.type === 'epub' ? (
                 <EpubReader
@@ -195,43 +216,20 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                     theme={theme}
                     onPageChange={handlePageChange}
                     onToggleControls={toggleControls}
+                    onHighlight={handleHighlight}
                 />
             ) : (
-                <ScrollView
-                    ref={scrollViewRef}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={handleScroll}
-                    decelerationRate="fast"
-                    style={styles.scrollView}
-                >
-                    {pages.map((pageContent, index) => (
-                        <Pressable
-                            key={index}
-                            onPress={toggleControls}
-                            style={[
-                                styles.page,
-                                {
-                                    width: SCREEN_WIDTH,
-                                    paddingTop: insets.top + 20,
-                                    paddingBottom: insets.bottom + 40,
-                                }
-                            ]}
-                        >
-                            <Text style={[
-                                styles.content,
-                                {
-                                    color: theme.text,
-                                    fontSize,
-                                    lineHeight: fontSize * 1.6
-                                }
-                            ]}>
-                                {pageContent}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </ScrollView>
+                <HtmlReader
+                    book={book}
+                    theme={theme}
+                    fontSize={fontSize}
+                    lineHeight={lineHeight}
+                    pageAnimation={pageAnimation}
+                    onPageChange={handlePageChange}
+                    onToggleControls={toggleControls}
+                    initialPage={(readingProgress[bookId] || 0) + 1}
+                    onHighlight={handleHighlight}
+                />
             )}
 
             {/* Page indicator (Unified) */}

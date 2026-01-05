@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Slider from '@react-native-community/slider';
 import { useReading } from '../context/ReadingContext';
 import * as haptics from '../utils/haptics';
 
@@ -29,8 +30,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         availableThemes,
         setTheme,
         fontSize,
-        increaseFontSize,
-        decreaseFontSize,
+        setFontSize,
+        lineHeight,
+        setLineHeight,
+        pageAnimation,
+        setPageAnimation,
         viewMode,
         setViewMode,
     } = useReading();
@@ -55,7 +59,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                     <Text style={[styles.backButtonText, { color: theme.accent }]}>
-                        ‹ Back
+                        ← Back
                     </Text>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: theme.isDark ? '#fff' : '#1a1a1a' }]}>
@@ -128,38 +132,76 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                             Font Size
                         </Text>
                         <View style={styles.fontControls}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.fontButton,
-                                    { backgroundColor: theme.isDark ? '#333' : '#f0f0f0' }
-                                ]}
-                                onPress={decreaseFontSize}
-                            >
-                                <Text style={[styles.fontButtonText, { color: theme.isDark ? '#fff' : '#333' }]}>
-                                    A-
-                                </Text>
-                            </TouchableOpacity>
+                            <Text style={[styles.fontLabelSmall, { color: theme.text }]}>A</Text>
 
-                            <View style={styles.fontSizeDisplay}>
-                                <Text style={[styles.fontSizeValue, { color: theme.isDark ? '#fff' : '#333' }]}>
-                                    {fontSize}
-                                </Text>
-                                <Text style={[styles.fontSizeLabel, { color: theme.isDark ? '#888' : '#999' }]}>
-                                    pt
-                                </Text>
-                            </View>
+                            <Slider
+                                style={styles.slider}
+                                minimumValue={10}
+                                maximumValue={32}
+                                step={1}
+                                value={fontSize}
+                                onValueChange={(val) => {
+                                    setFontSize(val);
+                                }}
+                                minimumTrackTintColor={theme.accent}
+                                maximumTrackTintColor={theme.isDark ? '#444' : '#ddd'}
+                                thumbTintColor={theme.accent}
+                            />
 
-                            <TouchableOpacity
-                                style={[
-                                    styles.fontButton,
-                                    { backgroundColor: theme.isDark ? '#333' : '#f0f0f0' }
-                                ]}
-                                onPress={increaseFontSize}
-                            >
-                                <Text style={[styles.fontButtonText, { color: theme.isDark ? '#fff' : '#333' }]}>
-                                    A+
-                                </Text>
-                            </TouchableOpacity>
+                            <Text style={[styles.fontLabelLarge, { color: theme.text }]}>A</Text>
+                        </View>
+                        <Text style={[styles.fontSizeValue, { color: theme.text }]}>{fontSize}pt</Text>
+
+
+                        {/* Line Spacing */}
+                        <Text style={[styles.cardLabel, { color: theme.isDark ? '#aaa' : '#333', marginTop: 24 }]}>
+                            Line Spacing
+                        </Text>
+                        <View style={styles.sliderRow}>
+                            <Text style={[styles.sliderIcon, { color: theme.text }]}>☰</Text>
+                            <Slider
+                                style={styles.slider}
+                                minimumValue={1.0}
+                                maximumValue={3.0}
+                                step={0.1}
+                                value={lineHeight}
+                                onValueChange={setLineHeight}
+                                minimumTrackTintColor={theme.accent}
+                                maximumTrackTintColor={theme.isDark ? '#444' : '#ddd'}
+                                thumbTintColor={theme.accent}
+                            />
+                            <Text style={[styles.sliderValue, { color: theme.text }]}>{lineHeight.toFixed(1)}</Text>
+                        </View>
+
+                        <View style={[styles.divider, { backgroundColor: theme.isDark ? '#333' : '#eee' }]} />
+
+                        {/* Page Animation */}
+                        <Text style={[styles.cardLabel, { color: theme.isDark ? '#aaa' : '#333' }]}>
+                            Page Animation
+                        </Text>
+                        <View style={styles.animationOptions}>
+                            {(['slide', 'scroll', 'none'] as const).map((anim) => (
+                                <TouchableOpacity
+                                    key={anim}
+                                    style={[
+                                        styles.animButton,
+                                        { borderColor: theme.isDark ? '#444' : '#ddd' },
+                                        pageAnimation === anim && {
+                                            borderColor: theme.accent,
+                                            backgroundColor: theme.isDark ? '#2a2a2a' : '#f0f7ff'
+                                        }
+                                    ]}
+                                    onPress={() => setPageAnimation(anim)}
+                                >
+                                    <Text style={[
+                                        styles.animButtonText,
+                                        { color: theme.isDark ? '#ccc' : '#333' },
+                                        pageAnimation === anim && { color: theme.accent, fontWeight: 'bold' }
+                                    ]}>
+                                        {anim.charAt(0).toUpperCase() + anim.slice(1)}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
 
                         {/* Preview */}
@@ -169,7 +211,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                         ]}>
                             <Text style={[
                                 styles.previewText,
-                                { color: theme.text, fontSize: fontSize, lineHeight: fontSize * 1.6 }
+                                {
+                                    color: theme.text,
+                                    fontSize: fontSize,
+                                    lineHeight: fontSize * lineHeight
+                                }
                             ]}>
                                 The quick brown fox jumps over the lazy dog.
                             </Text>
@@ -355,30 +401,29 @@ const styles = StyleSheet.create({
     fontControls: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 24,
+        paddingHorizontal: 8,
+        marginTop: 8,
     },
-    fontButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    fontButtonText: {
-        fontSize: 20,
+    fontLabelSmall: {
+        fontSize: 14,
         fontWeight: '600',
+        marginRight: 12,
     },
-    fontSizeDisplay: {
-        alignItems: 'center',
-        minWidth: 50,
+    fontLabelLarge: {
+        fontSize: 24,
+        fontWeight: '600',
+        marginLeft: 12,
+    },
+    slider: {
+        flex: 1,
+        height: 40,
     },
     fontSizeValue: {
-        fontSize: 28,
-        fontWeight: '600',
-    },
-    fontSizeLabel: {
+        textAlign: 'center',
         fontSize: 12,
+        marginTop: 4,
+        opacity: 0.7,
+        marginBottom: 16,
     },
     preview: {
         marginTop: 16,
@@ -417,6 +462,39 @@ const styles = StyleSheet.create({
     },
     aboutValue: {
         fontSize: 15,
+        fontWeight: '500',
+    },
+    sliderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 8,
+    },
+    sliderIcon: {
+        fontSize: 18,
+        width: 24,
+        textAlign: 'center',
+    },
+    sliderValue: {
+        fontSize: 14,
+        width: 30,
+        textAlign: 'right',
+        fontVariant: ['tabular-nums'],
+    },
+    animationOptions: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 10,
+    },
+    animButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    animButtonText: {
+        fontSize: 13,
         fontWeight: '500',
     },
 });

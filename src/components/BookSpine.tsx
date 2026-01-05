@@ -7,9 +7,10 @@ import * as haptics from '../utils/haptics';
 interface BookSpineProps {
     book: Book;
     onPress: () => void;
+    onLongPress?: () => void;
 }
 
-export const BookSpine: React.FC<BookSpineProps> = ({ book, onPress }) => {
+export const BookSpine: React.FC<BookSpineProps> = ({ book, onPress, onLongPress }) => {
     const { theme } = useReading();
 
     const handlePress = () => {
@@ -17,10 +18,16 @@ export const BookSpine: React.FC<BookSpineProps> = ({ book, onPress }) => {
         onPress();
     };
 
+    const handleLongPress = () => {
+        haptics.mediumTap();
+        if (onLongPress) onLongPress();
+    };
+
     return (
         <TouchableOpacity
             style={[styles.container, { backgroundColor: book.coverColor }]}
             onPress={handlePress}
+            onLongPress={handleLongPress}
             activeOpacity={0.8}
         >
             <View style={styles.spineEdge} />

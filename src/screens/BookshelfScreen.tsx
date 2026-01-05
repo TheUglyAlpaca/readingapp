@@ -8,6 +8,7 @@ import {
     TextInput,
     TouchableOpacity,
     ScrollView,
+    Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +22,7 @@ type RootStackParamList = {
     Bookshelf: undefined;
     Reader: { bookId: string };
     Settings: undefined;
+    Highlights: undefined;
 };
 
 type BookshelfScreenProps = {
@@ -28,7 +30,7 @@ type BookshelfScreenProps = {
 };
 
 export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) => {
-    const { theme, setLastOpenedBook, viewMode, setViewMode, books, addBook } = useReading();
+    const { theme, setLastOpenedBook, viewMode, setViewMode, books, addBook, deleteBook } = useReading();
     const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -94,6 +96,19 @@ export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) 
                         >
                             <Text style={[styles.iconButtonText, { color: theme.isDark ? '#fff' : '#333' }]}>
                                 +
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Highlights Button */}
+                        <TouchableOpacity
+                            style={[
+                                styles.iconButton,
+                                { backgroundColor: theme.isDark ? '#333' : '#e8e8e8' }
+                            ]}
+                            onPress={() => navigation.navigate('Highlights')}
+                        >
+                            <Text style={[styles.iconButtonText, { color: theme.isDark ? '#fff' : '#333' }]}>
+                                ❤️
                             </Text>
                         </TouchableOpacity>
 
@@ -178,7 +193,24 @@ export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) 
                     numColumns={2}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
-                        <BookCard book={item} onPress={() => handleBookPress(item.id)} />
+                        <BookCard
+                            book={item}
+                            onPress={() => handleBookPress(item.id)}
+                            onLongPress={() => {
+                                Alert.alert(
+                                    "Delete Book",
+                                    `Are you sure you want to delete "${item.title}"?`,
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        {
+                                            text: "Delete",
+                                            style: "destructive",
+                                            onPress: () => deleteBook(item.id)
+                                        }
+                                    ]
+                                );
+                            }}
+                        />
                     )}
                 />
             ) : (
@@ -197,6 +229,29 @@ export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) 
                                     key={book.id}
                                     book={book}
                                     onPress={() => handleBookPress(book.id)}
+                                    onLongPress={() => {
+                                        Alert.alert(
+                                            "Options",
+                                            undefined,
+                                            [
+                                                { text: "Cancel", style: "cancel" },
+                                                {
+                                                    text: "Delete Book",
+                                                    style: "destructive",
+                                                    onPress: () => {
+                                                        Alert.alert(
+                                                            "Delete Book",
+                                                            "Are you sure? This cannot be undone.",
+                                                            [
+                                                                { text: "Cancel", style: "cancel" },
+                                                                { text: "Delete", style: "destructive", onPress: () => deleteBook(book.id) }
+                                                            ]
+                                                        );
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }}
                                 />
                             ))}
                         </ScrollView>

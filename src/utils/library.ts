@@ -15,8 +15,12 @@ export const ensureBooksDirectory = async () => {
 export const pickAndImportBook = async (): Promise<Book | null> => {
     try {
         const result = await DocumentPicker.getDocumentAsync({
-            // Use */* to ensure all files are selectable, as strict MIME types can check fail on some devices
-            type: '*/*',
+            type: [
+                'application/pdf',
+                'application/epub+zip',
+                'application/epub',
+                'application/x-epub'
+            ],
             copyToCacheDirectory: true,
         });
 
@@ -26,15 +30,6 @@ export const pickAndImportBook = async (): Promise<Book | null> => {
 
         const asset = result.assets[0];
         if (!asset) return null;
-
-        // Verify extension
-        const isPdf = asset.name.toLowerCase().endsWith('.pdf');
-        const isEpub = asset.name.toLowerCase().endsWith('.epub');
-
-        if (!isPdf && !isEpub) {
-            alert('Please select a PDF or EPUB file.');
-            return null;
-        }
 
         await ensureBooksDirectory();
 
@@ -47,7 +42,8 @@ export const pickAndImportBook = async (): Promise<Book | null> => {
             to: destPath,
         });
 
-        const isPdf = asset.mimeType === 'application/pdf' || asset.name.toLowerCase().endsWith('.pdf');
+        const isPdf = asset.name.toLowerCase().endsWith('.pdf');
+        // If not PDF, assume EPUB since we filtered types (or strictly check extension)
         const bookType = isPdf ? 'pdf' : 'epub';
 
         // Create book entry
