@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ReadingState, ReadingTheme, BookshelfViewMode, Highlight } from '../types';
+import { ReadingState, ReadingTheme, BookshelfViewMode, Highlight, Book } from '../types';
 import { READING_THEMES, getThemeById, DEFAULT_THEME_ID, DEFAULT_VIEW_MODE } from '../config/themes';
+import { mockBooks } from '../data/mockBooks';
 import * as haptics from '../utils/haptics';
 
 const STORAGE_KEY = '@reading_app_state';
@@ -13,6 +14,7 @@ const defaultState: ReadingState = {
     lastOpenedBookId: null,
     readingProgress: {},
     highlights: [],
+    books: [], // Will be populated on load
 };
 
 interface ReadingContextType extends ReadingState {
@@ -37,6 +39,10 @@ interface ReadingContextType extends ReadingState {
     addHighlight: (highlight: Omit<Highlight, 'id' | 'createdAt'>) => void;
     removeHighlight: (highlightId: string) => void;
     getBookHighlights: (bookId: string) => Highlight[];
+
+    // Books
+    books: Book[];
+    addBook: (book: Book) => void;
 }
 
 const ReadingContext = createContext<ReadingContextType | undefined>(undefined);
@@ -57,7 +63,28 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
                         parsed.themeId = parsed.theme;
                         delete parsed.theme;
                     }
-                    setState({ ...defaultState, ...parsed });
+                    // Ensure books exist and are unique
+                    let loadedBooks: Book[] = parsed.books || mockBooks;
+
+                    // Deduplicate by ID
+                    const uniqueBooksMap = new Map();
+                    loadedBooks.forEach((book: Book) => {
+                        if (!uniqueBooksMap.has(book.id)) {
+                            uniqueBooksMap.set(book.id, book);
+                        }
+                    });
+
+                    // Ensure mock books are always present (optional, or just load them if list is empty)
+                    // If we want consistency during dev:
+                    mockBooks.forEach(book => {
+                        if (!uniqueBooksMap.has(book.id)) {
+                            uniqueBooksMap.set(book.id, book);
+                        }
+                    });
+
+                    setState({ ...defaultState, ...parsed, books: Array.from(uniqueBooksMap.values()) });
+                } else {
+                    setState({ ...defaultState, books: mockBooks });
                 }
             } catch (error) {
                 console.error('Error loading reading state:', error);
@@ -162,6 +189,14 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
         return state.highlights.filter(h => h.bookId === bookId);
     };
 
+    const addBook = (book: Book) => {
+        haptics.success();
+        setState((prev) => ({
+            ...prev,
+            books: [...(prev.books || []), book],
+        }));
+    };
+
     if (!isLoaded) {
         return null;
     }
@@ -184,6 +219,8 @@ export const ReadingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 addHighlight,
                 removeHighlight,
                 getBookHighlights,
+                books: state.books || [],
+                addBook,
             }}
         >
             {children}

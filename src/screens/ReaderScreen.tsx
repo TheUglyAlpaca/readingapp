@@ -17,7 +17,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SettingsModal } from '../components/SettingsModal';
-import { mockBooks } from '../data/mockBooks';
+import { PdfReader } from '../components/PdfReader';
+import { EpubReader } from '../components/EpubReader';
 import { useReading } from '../context/ReadingContext';
 import * as haptics from '../utils/haptics';
 
@@ -35,20 +36,21 @@ type ReaderScreenProps = {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 80;
 const SWIPE_ZONE_HEIGHT = 100;
-const BUTTON_SIZE = 52; // Increased from 44
+const BUTTON_SIZE = 52;
 
 export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route }) => {
     const { bookId } = route.params;
-    const { fontSize, theme, readingProgress, updateProgress } = useReading();
+    const { fontSize, theme, readingProgress, updateProgress, books } = useReading();
     const insets = useSafeAreaInsets();
     const [showControls, setShowControls] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scrollViewRef = useRef<ScrollView>(null);
     const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [pages, setPages] = useState<string[]>([]);
 
-    const book = mockBooks.find((b) => b.id === bookId);
+    const book = books.find((b) => b.id === bookId);
 
     // Calculate available height for text
     const pageHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 40;
@@ -59,9 +61,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
     const linesPerPage = Math.floor(pageHeight / (fontSize * 1.6));
     const charsPerPage = charsPerLine * linesPerPage;
 
-    // Split content into pages
+    // Split content into pages (Text books only)
     useEffect(() => {
-        if (!book) return;
+        if (!book || book.type === 'pdf' || book.type === 'epub') return;
 
         const content = book.content;
         const pageArray: string[] = [];
@@ -84,18 +86,21 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
         }
 
         setPages(pageArray);
+        setTotalPages(pageArray.length);
     }, [book, charsPerPage]);
 
     // Restore page position
     useEffect(() => {
         const savedPage = readingProgress[bookId] || 0;
-        if (savedPage > 0 && savedPage < pages.length) {
+        if (totalPages > 0 && savedPage > 0 && savedPage < totalPages) {
             setCurrentPage(savedPage);
-            setTimeout(() => {
-                scrollViewRef.current?.scrollTo({ x: savedPage * SCREEN_WIDTH, animated: false });
-            }, 100);
+            if (book?.type === 'text') {
+                setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ x: savedPage * SCREEN_WIDTH, animated: false });
+                }, 100);
+            }
         }
-    }, [bookId, pages.length]);
+    }, [bookId, totalPages, book?.type]);
 
     // Animate overlay
     useEffect(() => {
@@ -114,6 +119,12 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
             updateProgress(bookId, page);
         }
     }, [currentPage, pages.length, bookId, updateProgress]);
+
+    const handlePageChange = (page: number, total: number) => {
+        setCurrentPage(page - 1); // 0-indexed internally
+        setTotalPages(total);
+        updateProgress(bookId, page - 1);
+    };
 
     const toggleControls = () => {
         haptics.lightTap();
@@ -158,7 +169,6 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                 hidden={!showControls}
             />
 
-            {/* Swipe zone at top for dismiss gesture - hidden when controls visible */}
             {!showControls && (
                 <GestureDetector gesture={panGesture}>
                     <View
@@ -170,57 +180,74 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                 </GestureDetector>
             )}
 
-            {/* Page content */}
-            <ScrollView
-                ref={scrollViewRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleScroll}
-                decelerationRate="fast"
-                style={styles.scrollView}
-            >
-                {pages.map((pageContent, index) => (
-                    <Pressable
-                        key={index}
-                        onPress={toggleControls}
-                        style={[
-                            styles.page,
-                            {
-                                width: SCREEN_WIDTH,
-                                paddingTop: insets.top + 20,
-                                paddingBottom: insets.bottom + 40,
-                            }
-                        ]}
-                    >
-                        <Text style={[
-                            styles.content,
-                            {
-                                color: theme.text,
-                                fontSize,
-                                lineHeight: fontSize * 1.6
-                            }
-                        ]}>
-                            {pageContent}
-                        </Text>
-                    </Pressable>
-                ))}
-            </ScrollView>
+            {/* Content Readers */}
+            {book.type === 'pdf' ? (
+                <PdfReader
+                    book={book}
+                    theme={theme}
+                    onPageChange={handlePageChange}
+                    onToggleControls={toggleControls}
+                    initialPage={(readingProgress[bookId] || 0) + 1}
+                />
+            ) : book.type === 'epub' ? (
+                <EpubReader
+                    book={book}
+                    theme={theme}
+                    onPageChange={handlePageChange}
+                    onToggleControls={toggleControls}
+                />
+            ) : (
+                <ScrollView
+                    ref={scrollViewRef}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={handleScroll}
+                    decelerationRate="fast"
+                    style={styles.scrollView}
+                >
+                    {pages.map((pageContent, index) => (
+                        <Pressable
+                            key={index}
+                            onPress={toggleControls}
+                            style={[
+                                styles.page,
+                                {
+                                    width: SCREEN_WIDTH,
+                                    paddingTop: insets.top + 20,
+                                    paddingBottom: insets.bottom + 40,
+                                }
+                            ]}
+                        >
+                            <Text style={[
+                                styles.content,
+                                {
+                                    color: theme.text,
+                                    fontSize,
+                                    lineHeight: fontSize * 1.6
+                                }
+                            ]}>
+                                {pageContent}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </ScrollView>
+            )}
 
-            {/* Page indicator */}
+            {/* Page indicator (Unified) */}
             <View style={[styles.pageIndicator, { bottom: insets.bottom + 10 }]} pointerEvents="none">
                 <Text style={[styles.pageIndicatorText, { color: theme.isDark ? '#666' : '#999' }]}>
-                    {currentPage + 1} / {pages.length}
+                    {currentPage + 1} / {totalPages || (pages.length > 0 ? pages.length : '?')}
                 </Text>
             </View>
 
-            {/* Overlay Controls - Minimal UI */}
+            {/* Overlay Controls */}
             {showControls && (
                 <Animated.View
                     style={[styles.overlay, { opacity: fadeAnim }]}
                     pointerEvents="box-none"
                 >
-                    {/* Circular Back Button (X) - Top Left - LARGER */}
+                    {/* Circular Back Button (X) */}
                     <TouchableOpacity
                         style={[
                             styles.circleButton,
@@ -233,7 +260,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                         <Text style={[styles.circleButtonText, theme.isDark && styles.circleButtonTextDark]}>✕</Text>
                     </TouchableOpacity>
 
-                    {/* Circular Settings Button (Hamburger) - Top Right - LARGER */}
+                    {/* Circular Settings Button (Hamburger) */}
                     <TouchableOpacity
                         style={[
                             styles.circleButton,
@@ -256,14 +283,18 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ navigation, route })
                 visible={showSettings}
                 onClose={() => setShowSettings(false)}
                 currentPage={currentPage + 1}
-                totalPages={pages.length}
+                totalPages={totalPages || pages.length}
                 pages={pages}
                 onNavigate={(pageIndex) => {
                     setShowSettings(false);
                     setCurrentPage(pageIndex);
-                    setTimeout(() => {
-                        scrollViewRef.current?.scrollTo({ x: pageIndex * SCREEN_WIDTH, animated: false });
-                    }, 100);
+                    updateProgress(bookId, pageIndex);
+                    // Handle navigation for different types if needed
+                    if (book.type === 'text') {
+                        setTimeout(() => {
+                            scrollViewRef.current?.scrollTo({ x: pageIndex * SCREEN_WIDTH, animated: false });
+                        }, 100);
+                    }
                 }}
             />
         </View>
@@ -327,7 +358,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(40, 40, 40, 0.95)',
     },
     circleButtonText: {
-        fontSize: 22, // Increased for larger button
+        fontSize: 22,
         color: '#333',
         fontWeight: '300',
     },
@@ -336,6 +367,6 @@ const styles = StyleSheet.create({
     },
     middleArea: {
         flex: 1,
-        marginTop: 100, // Increased for larger buttons
+        marginTop: 100,
     },
 });

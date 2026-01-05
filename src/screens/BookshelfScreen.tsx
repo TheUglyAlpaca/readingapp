@@ -13,9 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BookCard } from '../components/BookCard';
 import { BookSpine } from '../components/BookSpine';
-import { mockBooks } from '../data/mockBooks';
 import { useReading } from '../context/ReadingContext';
 import * as haptics from '../utils/haptics';
+import { pickAndImportBook } from '../utils/library';
 
 type RootStackParamList = {
     Bookshelf: undefined;
@@ -28,7 +28,7 @@ type BookshelfScreenProps = {
 };
 
 export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) => {
-    const { theme, setLastOpenedBook, viewMode, setViewMode } = useReading();
+    const { theme, setLastOpenedBook, viewMode, setViewMode, books, addBook } = useReading();
     const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -42,16 +42,25 @@ export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) 
         setViewMode(viewMode === 'grid' ? 'spine' : 'grid');
     };
 
+    const handleImport = async () => {
+        haptics.lightTap();
+        const newBook = await pickAndImportBook();
+        if (newBook) {
+            addBook(newBook);
+            haptics.success();
+        }
+    };
+
     // Filter books by search query
     const filteredBooks = useMemo(() => {
-        if (!searchQuery.trim()) return mockBooks;
+        if (!searchQuery.trim()) return books;
         const query = searchQuery.toLowerCase();
-        return mockBooks.filter(
+        return books.filter(
             book =>
                 book.title.toLowerCase().includes(query) ||
                 book.author.toLowerCase().includes(query)
         );
-    }, [searchQuery]);
+    }, [books, searchQuery]);
 
     const handleSettings = () => {
         haptics.lightTap();
@@ -75,6 +84,19 @@ export const BookshelfScreen: React.FC<BookshelfScreenProps> = ({ navigation }) 
                         My Books
                     </Text>
                     <View style={styles.headerActions}>
+                        {/* Add Book Button (PDF Import) */}
+                        <TouchableOpacity
+                            style={[
+                                styles.iconButton,
+                                { backgroundColor: theme.isDark ? '#333' : '#e8e8e8' }
+                            ]}
+                            onPress={handleImport}
+                        >
+                            <Text style={[styles.iconButtonText, { color: theme.isDark ? '#fff' : '#333' }]}>
+                                +
+                            </Text>
+                        </TouchableOpacity>
+
                         {/* View Mode Toggle */}
                         <TouchableOpacity
                             style={[

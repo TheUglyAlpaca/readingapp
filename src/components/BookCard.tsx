@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Book } from '../types';
 import { useReading } from '../context/ReadingContext';
 import * as haptics from '../utils/haptics';
@@ -8,6 +7,10 @@ interface BookCardProps {
     book: Book;
     onPress: () => void;
 }
+
+const { width } = Dimensions.get('window');
+// Screen padding (8*2) + Card margins (8*4 for 2 columns) = 16 + 32 = 48
+const CARD_WIDTH = (width - 48) / 2;
 
 export const BookCard: React.FC<BookCardProps> = ({ book, onPress }) => {
     const { theme } = useReading();
@@ -21,7 +24,10 @@ export const BookCard: React.FC<BookCardProps> = ({ book, onPress }) => {
         <TouchableOpacity
             style={[
                 styles.container,
-                { backgroundColor: theme.isDark ? '#2d2d2d' : '#fff' }
+                {
+                    backgroundColor: theme.isDark ? '#2d2d2d' : '#fff',
+                    width: CARD_WIDTH
+                }
             ]}
             onPress={handlePress}
             activeOpacity={0.7}
@@ -47,7 +53,6 @@ export const BookCard: React.FC<BookCardProps> = ({ book, onPress }) => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
         margin: 8,
         padding: 12,
         borderRadius: 12,
@@ -58,6 +63,7 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     cover: {
+        width: '100%',
         aspectRatio: 0.7,
         borderRadius: 8,
         justifyContent: 'center',
@@ -73,8 +79,12 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 4,
+        lineHeight: 20,
+        height: 40, // Forces exactly 2 lines of height
     },
     author: {
         fontSize: 12,
+        height: 16, // Forces 1 line height
+        lineHeight: 16,
     },
 });

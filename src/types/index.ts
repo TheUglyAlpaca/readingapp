@@ -4,6 +4,16 @@ export interface Book {
     author: string;
     coverColor: string;
     content: string;
+    type: 'text' | 'pdf' | 'epub';
+    uri?: string;
+    pageCount?: number;
+    chapters?: Chapter[];
+    lastRead?: string;
+}
+
+export interface Chapter {
+    title: string;
+    page: number;
 }
 
 export interface ReadingProgress {
@@ -47,6 +57,7 @@ export interface ReadingState {
     lastOpenedBookId: string | null;
     readingProgress: Record<string, number>;
     highlights: Highlight[];
+    books?: Book[];
 }
 
 // Legacy compatibility - derive theme mode from themeId
